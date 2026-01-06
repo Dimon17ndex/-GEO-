@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таймер по QR-коду</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 40px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        #timer {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #333;
+        }
+        #status {
+            margin: 15px 0;
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Таймер по QR-коду</h1>
+    <div id="status">Ожидание сканирования...</div>
+    <div id="timer">00:00:00</div>
+    <button id="scanBtn">Сканировать QR-код</button>
+
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script>
+        let timerInterval = null;
+        let startTime = 0;
+
+        const scanBtn = document.getElementById('scanBtn');
+        const timerDisplay = document.getElementById('timer');
+        const statusDisplay = document.getElementById('status');
+
+        // Функция запуска таймера
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const hours = Math.floor(elapsed / 3600000);
+                const minutes = Math.floor((elapsed % 3600000) / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+
+                timerDisplay.textContent = 
+                    [hours, minutes, seconds]
+                        .map(val => val.toString().padStart(2, '0'))
+                        .join(':');
+            }, 1000);
+
+            statusDisplay.textContent = 'Таймер запущен!';
+        }
+
+        // Функция остановки таймера
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            statusDisplay.textContent = 'Таймер остановлен!';
+        }
+
+        // Функция сканирования QR-кода через камеру
+        async function scanQR() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            const video = document.createElement('video');
+            video.style.display = 'none';
+            document.body.appendChild(video);
+            video.srcObject = stream;
+            await video.play();
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            function tick() {
+                if (video.readyState === 4) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (code) {
+                        console.log('QR-код распознан:', code.data);
+                        processQRCode(code.data);
+                        stream.getTracks().forEach(track => track.stop());
+                        video.remove();
+                        return;
+                    }
+                }
+                requestAnimationFrame(tick);
+            }
+
+            tick();
+        }
+
+        // Обработка содержимого QR-кода
+        function processQRCode(data) {
+            if (data === 'Начало проведения работы') {
+                if (!timerInterval) {
+                    startTimer();
+                } else {
+                    statusDisplay.textContent = 'Таймер уже запущен!';
+                }
+            } else if (data === 'Завершение проведения работы') {
+                if (timerInterval) {
+                    stopTimer();
+                } else {
+                    statusDisplay.textContent = 'Таймер не был запущен!';
+                }
+            } else {
+                statusDisplay.textContent = `Неизвестный код: ${data}`;
+            }
+        }
+
+        // Обработчик кнопки
+        scanBtn.addEventListener('click', () => {
+            statusDisplay.textContent = 'Сканирование...';
+            scanQR().catch(err => {
+                statusDisplay.textContent = `Ошибка камеры: ${err.message}`;
+                console.error(err);
+            });
+        });
+    </script>
+</body>
+</html>
+
