@@ -5,27 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таймер по QR-коду</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 40px;
-        }
-        button {
-            padding: 12px 24px;
-            font-size: 16px;
-            margin: 10px;
-            cursor: pointer;
-        }
-        #timer {
-            font-size: 24px;
-            margin: 20px 0;
-            color: #333;
-        }
-        #status {
-            margin: 15px 0;
-            font-style: italic;
-            color: #666;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; margin: 40px; }
+        button { padding: 12px 24px; font-size: 16px; margin: 10px; cursor: pointer; }
+        #timer { font-size: 24px; margin: 20px 0; color: #333; }
+        #status { margin: 15px 0; font-style: italic; color: #666; }
+        table { margin: 20px auto; border-collapse: collapse; width: 80%; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f2f2f2; }
     </style>
 </head>
 <body>
@@ -34,16 +20,32 @@
     <div id="timer">00:00:00</div>
     <button id="scanBtn">Сканировать QR-код</button>
 
-    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>ID задачи</th>
+                <th>Время начала</th>
+                <th>Время окончания</th>
+                <th>Длительность</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         let timerInterval = null;
         let startTime = 0;
+        let taskId = '';
 
-        const scanBtn = document.getElementById('scanBtn');
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
+        const resultsTable = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
 
-        // Функция запуска таймера
+        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } });
+
         function startTimer() {
             startTime = Date.now();
             timerInterval = setInterval(() => {
@@ -51,86 +53,17 @@
                 const hours = Math.floor(elapsed / 3600000);
                 const minutes = Math.floor((elapsed % 3600000) / 60000);
                 const seconds = Math.floor((elapsed % 60000) / 1000);
-
-                timerDisplay.textContent = 
-                    [hours, minutes, seconds]
-                        .map(val => val.toString().padStart(2, '0'))
-                        .join(':');
+                timerDisplay.textContent = [hours, minutes, seconds].map(val => val.toString().padStart(2, '0')).join(':');
             }, 1000);
-
             statusDisplay.textContent = 'Таймер запущен!';
         }
 
-        // Функция остановки таймера
         function stopTimer() {
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
-            }
-            statusDisplay.textContent = 'Таймер остановлен!';
-        }
-
-        // Функция сканирования QR-кода через камеру
-        async function scanQR() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            const video = document.createElement('video');
-            video.style.display = 'none';
-            document.body.appendChild(video);
-            video.srcObject = stream;
-            await video.play();
-
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-
-            function tick() {
-                if (video.readyState === 4) {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                    const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-                    if (code) {
-                        console.log('QR-код распознан:', code.data);
-                        processQRCode(code.data);
-                        stream.getTracks().forEach(track => track.stop());
-                        video.remove();
-                        return;
-                    }
-                }
-                requestAnimationFrame(tick);
-            }
-
-            tick();
-        }
-
-        // Обработка содержимого QR-кода
-        function processQRCode(data) {
-            if (data === 'Начало проведения работы') {
-                if (!timerInterval) {
-                    startTimer();
-                } else {
-                    statusDisplay.textContent = 'Таймер уже запущен!';
-                }
-            } else if (data === 'Завершение проведения работы') {
-                if (timerInterval) {
-                    stopTimer();
-                } else {
-                    statusDisplay.textContent = 'Таймер не был запущен!';
-                }
-            } else {
-                statusDisplay.textContent = `Неизвестный код: ${data}`;
-            }
-        }
-
-        // Обработчик кнопки
-        scanBtn.addEventListener('click', () => {
-            statusDisplay.textContent = 'Сканирование...';
-            scanQR().catch(err => {
-                statusDisplay.textContent = `Ошибка камеры: ${err.message}`;
-                console.error(err);
-            });
-        });
-    </script>
-</body>
-</html>
+                const endTime = Date.now();
+                const duration = formatTime(endTime - startTime);
+                const startTimeFormatted = new Date(startTime).toLocaleString();
+                const endTimeFormatted = new Date(endTime).toLocaleString();
+                const row = resultsTable.insertRow();
