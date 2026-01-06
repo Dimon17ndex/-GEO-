@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Таймер по QR-коду</title>
+    <title>Таймер по QR-коду (старт/стоп)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -47,10 +47,11 @@
     </style>
 </head>
 <body>
-    <h1>Таймер по QR-коду</h1>
-    <div id="status">Ожидание сканирования...</div>
+    <h1>Таймер по QR‑коду (старт/стоп)</h1>
+    <div id="status">Ожидание QR‑кода...</div>
     <div id="timer">00:00:00</div>
-    <button id="scanBtn">Сканировать QR-код</button>
+
+    <button id="scanBtn">Сканировать QR‑код</button>
 
     <div id="reader"></div>
 
@@ -66,13 +67,13 @@
         <tbody></tbody>
     </table>
 
-    <!-- Библиотека для сканирования QR-кодов -->
+    <!-- Библиотека для сканирования QR‑кодов -->
     <script src="https://unpkg.com/html5-qrcode"></script>
 
     <script>
         let timerInterval = null;
         let startTime = 0;
-        let taskId = '';
+        let currentTaskId = '';
 
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
@@ -81,8 +82,9 @@
         // Инициализируем сканер
         const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
 
-        // Запуск таймера
-        function startTimer() {
+        // Запуск таймера (начало работы)
+        function startTimer(taskId) {
+            currentTaskId = taskId;
             startTime = Date.now();
             timerInterval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
@@ -90,17 +92,17 @@
                 const minutes = Math.floor((elapsed % 3600000) / 60000);
                 const seconds = Math.floor((elapsed % 60000) / 1000);
 
-                timerDisplay.textContent = 
+                timerDisplay.textContent =
                     [hours, minutes, seconds]
                         .map(val => val.toString().padStart(2, '0'))
                         .join(':');
             }, 1000);
-            statusDisplay.textContent = 'Таймер запущен!';
+            statusDisplay.textContent = `Работа начата! ID задачи: ${taskId}`;
         }
 
-        // Остановка таймера и запись результата
-        function stopTimer() {
-            if (timerInterval) {
+        // Остановка таймера (завершение работы)
+        function stopTimer(stopTaskId) {
+            if (timerInterval && currentTaskId === stopTaskId) {
                 clearInterval(timerInterval);
                 timerInterval = null;
 
@@ -109,14 +111,20 @@
                 const startTimeFormatted = new Date(startTime).toLocaleString();
                 const endTimeFormatted = new Date(endTime).toLocaleString();
 
+
                 // Добавляем строку в таблицу
                 const row = resultsTable.insertRow();
-                row.insertCell(0).textContent = taskId;
+                row.insertCell(0).textContent = stopTaskId;
                 row.insertCell(1).textContent = startTimeFormatted;
                 row.insertCell(2).textContent = endTimeFormatted;
                 row.insertCell(3).textContent = duration;
+
+
+                statusDisplay.textContent = `Работа завершена! ID задачи: ${stopTaskId}`;
+                currentTaskId = ''; // Очищаем текущий ID
+            } else {
+                statusDisplay.textContent = 'Ошибка: ID задачи не совпадает или таймер не запущен.';
             }
-            statusDisplay.textContent = 'Таймер остановлен!';
         }
 
         // Форматирование длительности
@@ -129,21 +137,27 @@
 
         // Обработчик успешного сканирования
         function onScanSuccess(decodedText) {
-            taskId = decodedText;
-            statusDisplay.textContent = `ID задачи: ${taskId}`;
-            startTimer();
-            html5QrcodeScanner.clear();
+            const [action, taskId] = decodedText.split('_');
+
+            if (action === 'START' && !currentTaskId) {
+                startTimer(taskId);
+            } else if (action === 'STOP' && currentTaskId === taskId) {
+                stopTimer(taskId);
+            } else {
+                statusDisplay.textContent = 'Ошибка: неверный QR‑код или несоответствие ID.';
+            }
         }
 
         // Обработчик ошибок
         function onScanFailure(error) {
             console.warn("Ошибка сканирования:", error);
+            statusDisplay.textContent = 'Ошибка сканирования. Попробуйте ещё раз.';
         }
 
         // Привязка к кнопке
         document.getElementById('scanBtn').addEventListener('click', () => {
             html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-            statusDisplay.textContent = "Ожидание QR-кода...";
+            statusDisplay.textContent = "Ожидание QR‑кода...";
         });
     </script>
 </body>
