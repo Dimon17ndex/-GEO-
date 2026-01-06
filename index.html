@@ -17,6 +17,19 @@
             background: linear-gradient(135deg, #1e3c5c, #3a4e68, #56647a);
             color: white;
             text-align: center;
+            overflow: hidden; /* Чтобы эффекты не вызывали скролл */
+            position: relative;
+        }
+
+        /* Контейнер для эффектов */
+        .effects-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Не мешать кликам */
+            z-index: -1;
         }
 
         h1 {
@@ -57,6 +70,8 @@
             border-radius: 8px;
             font-weight: bold;
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
         #startBtn {
@@ -78,6 +93,60 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0,0.2);
         }
+
+        /* Эффект для кнопки Старт */
+        .start-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(76, 175, 80, 0.3); /* Зелёный полупрозрачный */
+            transform: translate(-50%, -50%);
+            animation: pulse-start 1s ease-out;
+        }
+
+        /* Эффект для кнопки Стоп */
+        .stop-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(244, 67, 54, 0.3); /* Красный полупрозрачный */
+            transform: translate(-50%, -50%);
+            animation: pulse-stop 1s ease-out;
+        }
+
+        /* Эффект для кнопки Сброс */
+        .reset-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(33, 150, 243, 0.3); /* Синий полупрозрачный */
+            transform: translate(-50%, -50%);
+            animation: pulse-reset 1s ease-out;
+        }
+
+        @keyframes pulse-start {
+            0% { width: 0; height: 0; opacity: 0.8; }
+            100% { width: 100vw; height: 100vw; opacity: 0; }
+        }
+
+        @keyframes pulse-stop {
+            0% { width: 0; height: 0; opacity: 0.8; }
+            100% { width: 100vw; height: 100vw; opacity: 0; }
+        }
+
+        @keyframes pulse-reset {
+            0% { width: 0; height: 0; opacity: 0.8; }
+            100% { width: 100vw; height: 100vw; opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -91,6 +160,9 @@
         <button id="resetBtn">↺</button>
     </div>
 
+    <!-- Контейнер для анимационных эффектов -->
+    <div class="effects-container" id="effectsContainer"></div>
+
     <script>
         let timerInterval = null;
         let seconds = 0;
@@ -99,6 +171,7 @@
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const effectsContainer = document.getElementById('effectsContainer');
 
         // Обновление отображения таймера
         function updateDisplay() {
@@ -113,6 +186,18 @@
             ].join(':');
         }
 
+        // Создание эффекта
+        function createEffect(className) {
+            const effect = document.createElement('div');
+            effect.className = className;
+            effectsContainer.appendChild(effect);
+
+            // Удаляем элемент после анимации
+            setTimeout(() => {
+                effect.remove();
+            }, 1000);
+        }
+
         // Запуск таймера
         startBtn.addEventListener('click', () => {
             if (!timerInterval) {
@@ -120,6 +205,7 @@
                     seconds++;
                     updateDisplay();
                 }, 1000);
+                createEffect('start-effect');
             }
         });
 
@@ -128,6 +214,7 @@
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
+                createEffect('stop-effect');
             }
         });
 
@@ -135,12 +222,12 @@
         resetBtn.addEventListener('click', () => {
             seconds = 0;
             updateDisplay();
-            
-            // Если таймер работал — останавливаем
+
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
+            createEffect('reset-effect');
         });
     </script>
 </body>
