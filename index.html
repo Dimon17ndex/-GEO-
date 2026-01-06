@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Таймер по QR‑коду (старт/стоп)</title>
+    <title>Таймер по QR‑коду</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,6 +15,10 @@
             font-size: 16px;
             margin: 10px;
             cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
         }
         #timer {
             font-size: 24px;
@@ -43,9 +47,10 @@
             width: 300px;
             height: 300px;
             margin: 20px auto;
+            border: 1px dashed #ccc;
         }
         #resetBtn {
-            display: none; /* Скрыта по умолчанию */
+            display: none;
             background-color: #007BFF;
             color: white;
             border: none;
@@ -59,9 +64,7 @@
     <div id="timer">00:00:00</div>
 
     <button id="scanBtn">Сканировать QR‑код</button>
-
     <button id="resetBtn">Начать новый отсчёт</button>
-
 
     <div id="reader"></div>
 
@@ -83,22 +86,61 @@
     <script>
         let timerInterval = null;
         let startTime = 0;
+        let currentTaskId = '';
 
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
         const resultsTable = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+        const scanBtn = document.getElementById('scanBtn');
         const resetBtn = document.getElementById('resetBtn');
 
-        // Инициализируем сканер
-        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        // Инициализация сканера
+        const html5QrcodeScanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 });
+
+        // Сохранение данных в localStorage
+        function saveData() {
+            const data = {
+                timerRunning: timerInterval !== null,
+                startTime: startTime,
+                currentTaskId: currentTaskId,
+                results: Array.from(resultsTable.rows).map(row =>
+                    Array.from(row.cells).map(cell => cell.textContent)
+                )
+            };
+            localStorage.setItem('timerData', JSON.stringify(data));
+        }
+
+        // Загрузка данных из localStorage
+        function loadData() {
+            const saved = JSON.parse(localStorage.getItem('timerData'));
+            if (!saved) return;
+
+            // Восстанавливаем таблицу
+            saved.results.forEach(rowData => {
+                const row = document.createElement('tr');
+                rowData.forEach(text => {
+                    const cell = document.createElement('td');
+                    cell.textContent = text;
+                    row.appendChild(cell);
+                });
+                resultsTable.appendChild(row);
+            });
+
+            // Если таймер был запущен — возобновляем
+            if (saved.timerRunning && saved.startTime) {
+                startTimer(saved.currentTaskId, saved.startTime);
+            }
+        }
 
         // Запуск таймера
-        function startTimer() {
-            startTime = Date.now();
+        function startTimer(taskId = 'Задача 1', _startTime = Date.now()) {
+            currentTaskId = taskId;
+            startTime = _startTime;
+
             timerInterval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
                 const hours = Math.floor(elapsed / 3600000);
-                const minutes = Math.floor((elapsed % 3600000) / 60000);
+                const minutes = Math.floor((elapsed % 360000) / 60000);
                 const seconds = Math.floor((elapsed % 60000) / 1000);
 
                 timerDisplay.textContent =
@@ -106,10 +148,13 @@
                         .map(val => val.toString().padStart(2, '0'))
                         .join(':');
             }, 1000);
-            statusDisplay.textContent = 'Работа начата!';
+
+            statusDisplay.textContent = `Работа начата! ID задачи: ${taskId}`;
+            scanBtn.style.display = 'none';
+            resetBtn.style.display = 'inline-block';
         }
 
-        // Остановка таймера и запись результата
+        // Остановка таймера
         function stopTimer() {
             if (timerInterval) {
                 clearInterval(timerInterval);
@@ -120,20 +165,23 @@
                 const startTimeFormatted = new Date(startTime).toLocaleString();
                 const endTimeFormatted = new Date(endTime).toLocaleString();
 
-
                 // Добавляем строку в таблицу
                 const row = resultsTable.insertRow();
-                row.insertCell(0).textContent = 'Задача 1'; // Можно заменить на динамический ID
+                row.insertCell(0).textContent = currentTaskId;
                 row.insertCell(1).textContent = startTimeFormatted;
                 row.insertCell(2).textContent = endTimeFormatted;
                 row.insertCell(3).textContent = duration;
 
-                statusDisplay.textContent = 'Работа завершена! Результат сохранён.';
-                resetBtn.style.display = 'inline-block'; // Показываем кнопку сброса
+
+                statusDisplay.textContent = `Работа завершена! ID задачи: ${currentTaskId}`;
+                resetBtn.style.display = 'inline-block';
+                scanBtn.style.display = 'inline-block';
+
+                saveData(); // Сохраняем после остановки
             }
         }
 
-        // Форматирование длительности
+        // Форматирование времени
         function formatTime(milliseconds) {
             const seconds = Math.floor((milliseconds / 1000) % 60);
             const minutes = Math.floor((milliseconds / (1000 * 60)) % 60);
@@ -141,43 +189,29 @@
             return `${hours}:${minutes}:${seconds}`;
         }
 
-        // Обработчик успешного сканирования
+        // Обработчик сканирования
         function onScanSuccess(decodedText) {
-            if (decodedText === 'Начало проведения работы') {
-                if (!timerInterval) {
-                    startTimer();
-                } else {
-                    statusDisplay.textContent = 'Ошибка: таймер уже запущен!';
-                }
-            } else if (decodedText === 'Завершение проведения работы') {
-                if (timerInterval) {
-                    stopTimer();
-                } else {
-                    statusDisplay.textContent = 'Ошибка: таймер не запущен!';
-                }
+            if (decodedText === 'Начало проведения работы' && !timerInterval) {
+                startTimer();
+            } else if (decodedText === 'Завершение проведения работы' && timerInterval) {
+                stopTimer();
             } else {
-                statusDisplay.textContent = 'Ошибка: неизвестный QR‑код.';
+                statusDisplay.textContent = 'Ошибка: неверный QR‑код или состояние таймера.';
             }
+            saveData();
         }
 
-        // Обработчик ошибок
         function onScanFailure(error) {
-            console.warn("Ошибка сканирования:", error);
+            console.warn('Ошибка сканирования:', error);
             statusDisplay.textContent = 'Ошибка сканирования. Попробуйте ещё раз.';
         }
 
-        // Привязка к кнопке сканирования
-        document.getElementById('scanBtn').addEventListener('click', () => {
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-            statusDisplay.textContent = "Ожидание QR‑кода...";
-        });
-
-        // Привязка к кнопке сброса
+        // Кнопка сброса
         resetBtn.addEventListener('click', () => {
             timerDisplay.textContent = '00:00:00';
             statusDisplay.textContent = 'Ожидание QR‑кода...';
-            resetBtn.style.display = 'none'; // Скрываем кнопку
-        });
-    </script>
-</body>
-</html>
+            currentTaskId = '';
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+            resetBtn.style.display = 'none';
+            scanBtn.style.display = 'inline
