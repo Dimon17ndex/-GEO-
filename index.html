@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GEOГРАФИЯ</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        body {
             font-family: 'Arial', sans-serif;
             height: 100vh;
             display: flex;
@@ -17,38 +20,7 @@
             background: linear-gradient(135deg, #1e3c5c, #3a4e68, #56647a);
             color: white;
             text-align: center;
-            overflow: hidden;
-            position: relative;
         }
-
-        .effects-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        h1, h2, #timer {
-            transition: transform 0.2s ease-out;
-        }
-
-        h1 {
-            font-size: 3.5rem;
-            margin: 0 0 10px 0;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        h2 {
-            font-size: 1.5rem;
-            margin: 0 0 40px 0;
-            font-weight: 300;
-            letter-spacing: 1px;
-        }
-
         #timer {
             font-size: 4rem;
             font-weight: bold;
@@ -58,38 +30,23 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             margin: 30px 0;
             position: relative;
+            overflow: hidden;
         }
-
-        #timer::before {
-            content: "";
+        .snake-container {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: inherit;
+            inset: 0;
             pointer-events: none;
-            background: conic-gradient(from 90deg at 50% 50%, green 360deg, transparent 0);
-            mix-blend-mode: overlay;
-            opacity: 0;
-            animation: snakeBorder 5s linear infinite;
         }
-
-        #timer.running::before {
-            opacity: 1;
+        .snake-line {
+            position: absolute;
+            background: currentColor;
+            opacity: 0.9;
         }
-
-        #timer.stopped::before {
-            animation-play-state: paused;
-            background: conic-gradient(from 90deg at 50% 50%, red 360deg, transparent 0);
-        }
-
         .controls {
             display: flex;
             gap: 20px;
             margin-top: 20px;
         }
-
         button {
             padding: 12px 24px;
             font-size: 16px;
@@ -97,140 +54,131 @@
             border: none;
             border-radius: 8px;
             font-weight: bold;
-            transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
+            transition: transform 0.2s ease;
         }
-
-        #startBtn { background-color: #4CAF50; color: white; }
-        #stopBtn { background-color: #f44336; color: white; }
-        #resetBtn { background-color: #2196F3; color: white; }
-
-        button:active {
-            transform: scale(0.95);
-        }
-
-        /* Эффекты пульсации */
-        .pulse-effect {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            opacity: 0.8;
-            transform: translate(-50%, -50%);
-            animation: pulse 0.6s ease-out forwards;
-        }
-
-        @keyframes pulse {
-            0% { width: 0; height: 0; opacity: 0.8; }
-            100% { width: 150vw; height: 150vw; opacity: 0; }
-        }
-
-        @keyframes snakeBorder {
-            0% { background-position: 0 0; }
-            100% { background-position: 360deg 0; }
-        }
+        #startBtn { background: #4CAF50; color: white; }
+        #stopBtn { background: #f44336; color: white; }
+        #resetBtn { background: #2196F3; color: white; }
+        button:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
     <h1>GEOГРАФИЯ</h1>
     <h2>Работы.Задания.Тесты</h2>
-    <div id="timer">00:00:00</div>
-
+    <div id="timer">00:00:00
+        <div class="snake-container" id="snakeContainer"></div>
+    </div>
     <div class="controls">
         <button id="startBtn">СТАРТ</button>
         <button id="stopBtn">СТОП</button>
         <button id="resetBtn">↺</button>
     </div>
 
-    <div class="effects-container" id="effectsContainer"></div>
-
     <script>
         let timerInterval = null;
         let seconds = 0;
+
         const timerDisplay = document.getElementById('timer');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const resetBtn = document.getElementById('resetBtn');
-        const effectsContainer = document.getElementById('effectsContainer');
-        const elementsToShake = document.querySelectorAll('h1, h2, #timer');
+        const snakeContainer = document.getElementById('snakeContainer');
 
-        function updateDisplay() {
-            const hours = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-
-            timerDisplay.textContent = [
-                hours.toString().padStart(2, '0'),
-                mins.toString().padStart(2, '0'),
-                secs.toString().padStart(2, '0')
-            ].join(':');
+        // Обновление таймера
+        function updateTimer() {
+            const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+            const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+            const s = String(seconds % 60).padStart(2, '0');
+            timerDisplay.textContent = `${h}:${m}:${s}`;
         }
 
-        // Вибрация (только для мобильных)
-        function vibrate() {
-            if ('vibrate' in navigator) {
-                navigator.vibrate(50); // 50 мс вибрация
-            }
-        }
+        // Анимация змейки
+        function animateSnake(color, duration) {
+            // Очищаем предыдущие линии
+            snakeContainer.innerHTML = '';
 
-        // Эффект подпрыгивания
-        function shakeElements() {
-            elementsToShake.forEach(el => {
-                el.style.transform = 'translateY(-10px)';
+            // Создаём 4 стороны
+            const sides = ['top', 'right', 'bottom', 'left'];
+            sides.forEach((side, index) => {
+                const line = document.createElement('div');
+                line.className = 'snake-line';
+                line.style.color = color;
+
+                // Позиционирование для каждой стороны
+                switch (side) {
+                    case 'top':
+                        line.style.width = '100%';
+                        line.style.height = '4px';
+                        line.style.top = '0';
+                        line.style.left = '-100%'; // Начинаем за пределами
+                        break;
+                    case 'right':
+                        line.style.width = '4px';
+                        line.style.height = '100%';
+                        line.style.right = '-100%';
+                        line.style.top = '0';
+                        break;
+                    case 'bottom':
+                        line.style.width = '100%';
+                        line.style.height = '4px';
+                        line.style.bottom = '0';
+                        line.style.left = '100%'; // Начинаем справа
+                        break;
+                    case 'left':
+                        line.style.width = '4px';
+                        line.style.height = '100%';
+                        line.style.left = '-100%';
+                        line.style.top = '0';
+                        break;
+                }
+                snakeContainer.appendChild(line);
+
+                // Запускаем анимацию через небольшую задержку для эффекта змейки
                 setTimeout(() => {
-                    el.style.transform = 'translateY(0)';
-                }, 200);
+                    line.style.transition = `transform ${duration}ms ease-out`;
+                    switch (side) {
+                        case 'top': line.style.transform = 'translateX(100%)'; break;
+                        case 'right': line.style.transform = 'translateY(100%)'; break;
+                        case 'bottom': line.style.transform = 'translateX(-100%)'; break;
+                        case 'left': line.style.transform = 'translateY(-100%)'; break;
+                    }
+                }, index * 250); // Задержка между сторонами
             });
+
+            // Убираем линии после завершения анимации
+            setTimeout(() => {
+                snakeContainer.innerHTML = '';
+            }, duration + 500);
         }
 
-        // Создание эффекта пульсации
-        function createPulse(color) {
-            const effect = document.createElement('div');
-            effect.className = 'pulse-effect';
-            effect.style.background = color;
-            effectsContainer.appendChild(effect);
-
-            setTimeout(() => effect.remove(), 600);
-        }
-
+        // Обработчики кнопок
         startBtn.addEventListener('click', () => {
             if (!timerInterval) {
                 timerInterval = setInterval(() => {
                     seconds++;
-                    updateDisplay();
+                    updateTimer();
+                    // Через 5 секунд запускаем зелёную змейку
+                    if (seconds === 5) {
+                        animateSnake('#4CAF50', 2500);
+                    }
                 }, 1000);
-                timerDisplay.classList.add('running');
-                vibrate();
-                shakeElements();
-                createPulse('rgba(76, 175, 80, 0.4)');
             }
         });
 
         stopBtn.addEventListener('click', () => {
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-                timerDisplay.classList.add('stopped');
-                vibrate();
-                shakeElements();
-                createPulse('rgba(244, 67, 54, 0.4)');
-            }
+            clearInterval(timerInterval);
+            timerInterval = null;
+            // Красная змейка при остановке
+            animateSnake('#f44336', 2000);
         });
 
         resetBtn.addEventListener('click', () => {
             seconds = 0;
-            updateDisplay();
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            timerDisplay.classList.remove('running', 'stopped');
-            vibrate();
-            shakeElements();
-            createPulse('rgba(33, 150, 243, 0.4)');
+            updateTimer();
+            clearInterval(timerInterval);
+            timerInterval = null;
+            // Синяя змейка при сбросе
+            animateSnake('#2196F3', 1500);
         });
     </script>
 </body>
