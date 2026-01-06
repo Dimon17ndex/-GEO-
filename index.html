@@ -57,6 +57,35 @@
             padding: 20px 40px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             margin: 30px 0;
+            position: relative;
+        }
+
+        #timer::before,
+        #timer::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        #timer::before {
+            --color-start: rgba(76, 175, 80, 0.4);
+            --color-stop: transparent;
+            background-image: repeating-linear-gradient(
+                to right bottom,
+                var(--color-start),
+                var(--color-start) 20%,
+                var(--color-stop) 20%
+            );
+            animation: snake 5s infinite linear;
+        }
+
+        #timer.stopped::before {
+            --color-start: rgba(244, 67, 54, 0.4);
+            animation-duration: 0.5s;
+            animation-timing-function: cubic-bezier(.1,.95,.35,1.5);
+            animation-fill-mode: forwards;
         }
 
         .controls {
@@ -101,6 +130,11 @@
         @keyframes pulse {
             0% { width: 0; height: 0; opacity: 0.8; }
             100% { width: 150vw; height: 150vw; opacity: 0; }
+        }
+
+        @keyframes snake {
+            from {background-position: 0 0;}
+            to {background-position: calc(var(--size) * -1) 0;}
         }
     </style>
 </head>
@@ -173,11 +207,13 @@
                     seconds++;
                     updateDisplay();
                 }, 1000);
-                
+
                 vibrate();
                 shakeElements();
                 createPulse('rgba(76, 175, 80, 0.4)');
             }
+            
+            timerDisplay.classList.remove('stopped');
         });
 
         stopBtn.addEventListener('click', () => {
@@ -189,6 +225,8 @@
                 shakeElements();
                 createPulse('rgba(244, 67, 54, 0.4)');
             }
+
+            timerDisplay.classList.add('stopped');
         });
 
         resetBtn.addEventListener('click', () => {
