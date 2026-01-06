@@ -57,6 +57,24 @@
             padding: 20px 40px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             margin: 30px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Контейнер для змейки вокруг таймера */
+        .snake-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .snake-line {
+            position: absolute;
+            background: transparent;
+            will-change: transform;
         }
 
         .controls {
@@ -85,7 +103,6 @@
             transform: scale(0.95);
         }
 
-        /* Эффекты пульсации */
         .pulse-effect {
             position: absolute;
             top: 50%;
@@ -107,7 +124,9 @@
 <body>
     <h1>GEOГРАФИЯ</h1>
     <h2>Работы.Задания.Тесты</h2>
-    <div id="timer">00:00:00</div>
+    <div id="timer">00:00:00
+        <div class="snake-container" id="snakeContainer"></div>
+    </div>
 
     <div class="controls">
         <button id="startBtn">СТАРТ</button>
@@ -120,12 +139,14 @@
     <script>
         let timerInterval = null;
         let seconds = 0;
+        let snakeAnimation = null;
 
         const timerDisplay = document.getElementById('timer');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const resetBtn = document.getElementById('resetBtn');
         const effectsContainer = document.getElementById('effectsContainer');
+        const snakeContainer = document.getElementById('snakeContainer');
         const elementsToShake = document.querySelectorAll('h1, h2, #timer');
 
         function updateDisplay() {
@@ -140,14 +161,12 @@
             ].join(':');
         }
 
-        // Вибрация (только для мобильных)
         function vibrate() {
             if ('vibrate' in navigator) {
-                navigator.vibrate(50); // 50 мс вибрация
+                navigator.vibrate(50);
             }
         }
 
-        // Эффект «подпрыгивания»
         function shakeElements() {
             elementsToShake.forEach(el => {
                 el.style.transform = 'translateY(-10px)';
@@ -157,7 +176,6 @@
             });
         }
 
-        // Создание эффекта пульсации
         function createPulse(color) {
             const effect = document.createElement('div');
             effect.className = 'pulse-effect';
@@ -167,43 +185,41 @@
             setTimeout(() => effect.remove(), 600);
         }
 
-        startBtn.addEventListener('click', () => {
-            if (!timerInterval) {
-                timerInterval = setInterval(() => {
-                    seconds++;
-                    updateDisplay();
-                }, 1000);
-                
-                vibrate();
-                shakeElements();
-                createPulse('rgba(76, 175, 80, 0.4)');
-            }
-        });
+        // Создание змейки
+        function createSnake(color, duration = 3000) {
+            // Очищаем предыдущие анимации
+            snakeContainer.innerHTML = '';
 
-        stopBtn.addEventListener('click', () => {
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
+            // Создаём 4 линии (по сторонам)
+            const sides = ['top', 'right', 'bottom', 'left'];
+            sides.forEach((side, index) => {
+                const line = document.createElement('div');
+                line.className = 'snake-line';
+                line.style.backgroundColor = color;
 
-                vibrate();
-                shakeElements();
-                createPulse('rgba(244, 67, 54, 0.4)');
-            }
-        });
-
-        resetBtn.addEventListener('click', () => {
-            seconds = 0;
-            updateDisplay();
-
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-
-            vibrate();
-            shakeElements();
-            createPulse('rgba(33, 150, 243, 0.4)');
-        });
-    </script>
-</body>
-</html>
+                switch (side) {
+                    case 'top':
+                        line.style.width = '100%';
+                        line.style.height = '4px';
+                        line.style.top = '0';
+                        line.style.left = '0';
+                        break;
+                    case 'right':
+                        line.style.width = '4px';
+                        line.style.height = '100%';
+                        line.style.right = '0';
+                        line.style.top = '0';
+                        break;
+                    case 'bottom':
+                        line.style.width = '100%';
+                        line.style.height = '4px';
+                        line.style.bottom = '0';
+                        line.style.left = '0';
+                        break;
+                    case 'left':
+                        line.style.width = '4px';
+                        line.style.height = '100%';
+                        line.style.left = '0';
+                        line.style.top = '0';
+                        break;
+                }
