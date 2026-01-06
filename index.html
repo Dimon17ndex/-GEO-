@@ -5,13 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таймер по QR-коду</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 40px; }
-        button { padding: 12px 24px; font-size: 16px; margin: 10px; cursor: pointer; }
-        #timer { font-size: 24px; margin: 20px 0; color: #333; }
-        #status { margin: 15px 0; font-style: italic; color: #666; }
-        table { margin: 20px auto; border-collapse: collapse; width: 80%; }
-        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 40px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        #timer {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #333;
+        }
+        #status {
+            margin: 15px 0;
+            font-style: italic;
+            color: #666;
+        }
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 80%;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #reader {
+            width: 300px;
+            height: 300px;
+            margin: 20px auto;
+        }
     </style>
 </head>
 <body>
@@ -20,7 +52,7 @@
     <div id="timer">00:00:00</div>
     <button id="scanBtn">Сканировать QR-код</button>
 
-    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+    <div id="reader"></div>
 
     <table id="resultsTable">
         <thead>
@@ -34,7 +66,9 @@
         <tbody></tbody>
     </table>
 
+    <!-- Библиотека для сканирования QR-кодов -->
     <script src="https://unpkg.com/html5-qrcode"></script>
+
     <script>
         let timerInterval = null;
         let startTime = 0;
@@ -44,8 +78,13 @@
         const statusDisplay = document.getElementById('status');
         const resultsTable = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
 
-        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } });
+        // Инициализируем сканер QR-кодов
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: { width: 250, height: 250 } }
+        );
 
+        // Функция запуска таймера
         function startTimer() {
             startTime = Date.now();
             timerInterval = setInterval(() => {
@@ -53,17 +92,63 @@
                 const hours = Math.floor(elapsed / 3600000);
                 const minutes = Math.floor((elapsed % 3600000) / 60000);
                 const seconds = Math.floor((elapsed % 60000) / 1000);
-                timerDisplay.textContent = [hours, minutes, seconds].map(val => val.toString().padStart(2, '0')).join(':');
+
+                timerDisplay.textContent =
+                    [hours, minutes, seconds]
+                        .map(val => val.toString().padStart(2, '0'))
+                        .join(':');
             }, 1000);
+
             statusDisplay.textContent = 'Таймер запущен!';
         }
 
+        // Функция остановки таймера и сохранения результата
         function stopTimer() {
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
+
                 const endTime = Date.now();
                 const duration = formatTime(endTime - startTime);
                 const startTimeFormatted = new Date(startTime).toLocaleString();
                 const endTimeFormatted = new Date(endTime).toLocaleString();
+
+                // Добавляем строку в таблицу
                 const row = resultsTable.insertRow();
+                row.insertCell(0).textContent = taskId;
+                row.insertCell(1).textContent = startTimeFormatted;
+                row.insertCell(2).textContent = endTimeFormatted;
+                row.insertCell(3).textContent = duration;
+            }
+            statusDisplay.textContent = 'Таймер остановлен!';
+        }
+
+        // Форматируем длительность в чч:мм:сс
+        function formatTime(milliseconds) {
+            const seconds = Math.floor((milliseconds / 1000) % 60);
+            const minutes = Math.floor((milliseconds / (1000 * 60)) % 60);
+            const hours = Math.floor(milliseconds / (1000 * 60 * 60));
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        // Обработчик успешного сканирования
+        function onScanSuccess(decodedText, decodedResult) {
+            taskId = decodedText; // Сохраняем ID задачи из QR-кода
+            statusDisplay.textContent = `ID задачи: ${taskId}`;
+            startTimer(); // Запускаем таймер
+            html5QrcodeScanner.clear(); // Останавливаем сканер
+        }
+
+        // Обработчик ошибок
+        function onScanFailure(error) {
+            console.warn("Ошибка сканирования: ", error);
+        }
+
+        // Запускаем сканер при клике на кнопку
+        document.getElementById('scanBtn').addEventListener('click', () => {
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            statusDisplay.textContent = "Ожидание QR-кода...";
+        });
+    </script>
+</body>
+</html>
